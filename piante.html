@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<title>PIANTE</title>
+
+<link rel="manifest" href="manifest.json">
+
+<style>
+
+body{
+    font-family:Arial;
+    background:#f2f8f2;
+    margin:0;
+    text-align:center;
+}
+
+header{
+    background:#2e7d32;
+    color:white;
+    padding:15px;
+    font-size:26px;
+    font-weight:bold;
+}
+
+video{
+    width:95%;
+    max-width:600px;
+    border-radius:12px;
+    margin-top:15px;
+}
+
+button{
+    background:#4caf50;
+    color:white;
+    border:none;
+    padding:15px 25px;
+    margin-top:15px;
+    border-radius:8px;
+    font-size:18px;
+}
+
+.card{
+    background:white;
+    margin:20px;
+    padding:20px;
+    border-radius:12px;
+    box-shadow:0 0 10px rgba(0,0,0,.1);
+    text-align:left;
+}
+
+canvas{
+    display:none;
+}
+
+#history{
+    margin-top:20px;
+}
+
+.item{
+    border-bottom:1px solid #ddd;
+    padding:10px;
+}
+
+</style>
+
+</head>
+
+<body>
+
+<header>
+🌿 PIANTE
+</header>
+
+<video
+id="video"
+autoplay
+playsinline>
+</video>
+
+<br>
+
+<button onclick="takePhoto()">
+📷 Identifica Pianta
+</button>
+
+<canvas id="canvas"></canvas>
+
+<div id="result"></div>
+
+<div class="card">
+
+<h2>Cronologia</h2>
+
+<div id="history"></div>
+
+</div>
+
+<script>
+
+const API_KEY="INSERISCI_API_KEY_PLANTID";
+
+const video=document.getElementById("video");
+
+navigator.mediaDevices.getUserMedia({
+video:{
+facingMode:{
+ideal:"environment"
+}
+}
+})
+.then(stream=>{
+video.srcObject=stream;
+});
+
+loadHistory();
+
+function takePhoto(){
+
+const canvas=
+document.getElementById("canvas");
+
+canvas.width=video.videoWidth;
+canvas.height=video.videoHeight;
+
+const ctx=
+canvas.getContext("2d");
+
+ctx.drawImage(
+video,
+0,
+0
+);
+
+const image=
+canvas
+.toDataURL("image/jpeg")
+.split(",")[1];
+
+identifyPlant(image);
+
+}
+
+async function identifyPlant(image){
+
+document.getElementById("result").innerHTML=
+`
+<div class="card">
+Analisi in corso...
+</div>
+`;
+
+try{
+
+const response=
+await fetch(
+"https://api.plant.id/v2/identify",
+{
+method:"POST",
+headers:{
+"Content-Type":"application/json",
+"Api-Key":API_KEY
+},
+body:JSON.stringify({
+
+images:[image],
+
+plant_details:[
+"common_names",
+"url",
+"wiki_description"
+]
+
+})
+
+});
+
+const data=
+await response.json();
+
+const plant=
+data.suggestions[0];
+
+let scientific=
+plant.plant_name;
+
+let common=
+plant.plant_details
+.common_names?.[0]
+|| scientific;
+
+let description=
+plant.plant_details
+.wiki_description?.value
+|| "Nessuna descrizione disponibile";
+
+let care =
+generateCare(common);
+
+document.getElementById("result").innerHTML=
+`
+
+<div class="card">
+
+<h2>${common}</h2>
+
+<h3>${scientific}</h3>
+
+<p>${description}</p>
+
+<h3>☀ Esposizione</h3>
+<p>${care.light}</p>
+
+<h3>💧 Irrigazione</h3>
+<p>${care.water}</p>
+
+<h3>🌡 Temperatura</h3>
+<p>${care.temp}</p>
+
+<h3>🌱 Cura</h3>
+<p>${care.care}</p>
+
+</div>
+
+`;
+
+saveHistory(common);
+
+}
+catch(err){
+
+document.getElementById("result").innerHTML=
+`
+<div class="card">
+Errore riconoscimento.
+</div>
+`;
+
+}
+
+}
+
+function generateCare(name){
+
+return {
+
+light:
+"Luce indiretta intensa",
+
+water:
+"Controllare il terreno e innaffiare quando risulta asciutto",
+
+temp:
+"15°C - 28°C",
+
+care:
+"Eliminare foglie secche e utilizzare terriccio drenante"
+
+};
+
+}
+
+function saveHistory(name){
+
+let history=
+JSON.parse(
+localStorage.getItem("plants
